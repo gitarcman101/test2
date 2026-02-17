@@ -75,6 +75,7 @@ const messageRecent = document.querySelector("#messageRecent");
 const messageHistory = document.querySelector("#messageHistory");
 const messageHistorySummary = document.querySelector("#messageHistorySummary");
 const messageHistoryList = document.querySelector("#messageHistoryList");
+const MAX_MESSAGE_LENGTH = Math.max(1, Number(messageInput?.maxLength || 220));
 
 const meetingRoomCountNodes = Object.fromEntries(
   Array.from(document.querySelectorAll("[data-room-count]")).map((node) => [node.dataset.roomCount, node])
@@ -211,7 +212,7 @@ function getBubbleText(clientId) {
 function setBubble(clientId, text) {
   if (!clientId || !text) return;
   appState.bubbles.set(clientId, {
-    text: String(text).trim().slice(0, 60),
+    text: String(text).trim().slice(0, MAX_MESSAGE_LENGTH),
     until: Date.now() + BUBBLE_TTL_MS
   });
 }
@@ -541,7 +542,7 @@ function normalizeMessagePayload(payload) {
   const id = String(payload.id || "").trim();
   const clientId = String(payload.clientId || "").trim();
   const nickname = String(payload.nickname || "").trim().slice(0, 12);
-  const text = String(payload.text || "").trim().slice(0, 220);
+  const text = String(payload.text || "").trim().slice(0, MAX_MESSAGE_LENGTH);
   const createdAt = Number(payload.createdAt || Date.now());
   if (!id || !nickname || !text) return null;
   return { id, clientId, nickname, text, createdAt };
@@ -552,7 +553,7 @@ async function sendMessage(rawText) {
   const me = getLocalParticipant();
   if (!me) return;
 
-  const text = String(rawText || "").trim().slice(0, 220);
+  const text = String(rawText || "").trim().slice(0, MAX_MESSAGE_LENGTH);
   if (!text) return;
 
   const payload = {
