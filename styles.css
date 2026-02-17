@@ -100,6 +100,49 @@ body {
   color: #505248;
 }
 
+.office-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quick-message-form {
+  width: min(430px, 58%);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.quick-message-form input {
+  height: 34px;
+  border: 1px solid #a7aa97;
+  border-radius: 8px;
+  background: #fffffa;
+  padding: 0 10px;
+  color: #474a3d;
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 13px;
+}
+
+.quick-message-form button {
+  height: 34px;
+  border: 1px solid #869266;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #9cae6d, #85955e);
+  color: #f7f9ef;
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.quick-message-form button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .office-map {
   margin-top: 14px;
   border-radius: 12px;
@@ -818,6 +861,15 @@ body {
 }
 
 @media (max-width: 760px) {
+  .office-head {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .quick-message-form {
+    width: 100%;
+  }
+
   .panel-head h1,
   .panel-head h2 { font-size: 13px; }
 

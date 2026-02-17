@@ -77,11 +77,16 @@ const fixedPmSeat = document.querySelector("#fixedPmSeat");
 
 const messageForm = document.querySelector("#messageForm");
 const messageInput = document.querySelector("#messageInput");
+const quickMessageForm = document.querySelector("#quickMessageForm");
+const quickMessageInput = document.querySelector("#quickMessageInput");
 const messageRecent = document.querySelector("#messageRecent");
 const messageHistory = document.querySelector("#messageHistory");
 const messageHistorySummary = document.querySelector("#messageHistorySummary");
 const messageHistoryList = document.querySelector("#messageHistoryList");
-const MAX_MESSAGE_LENGTH = Math.max(1, Number(messageInput?.maxLength || 220));
+const MAX_MESSAGE_LENGTH = Math.max(
+  1,
+  Number(messageInput?.maxLength || quickMessageInput?.maxLength || 220)
+);
 
 const meetingRoomCountNodes = Object.fromEntries(
   Array.from(document.querySelectorAll("[data-room-count]")).map((node) => [node.dataset.roomCount, node])
@@ -287,12 +292,29 @@ function updateSyncLabel(text) {
 }
 
 function updateMessageInputState() {
-  if (!messageForm || !messageInput) return;
-  const submitBtn = messageForm.querySelector("button");
   const enabled = appState.localJoined;
-  messageInput.disabled = !enabled;
-  submitBtn.disabled = !enabled;
-  messageInput.placeholder = enabled ? "메시지 입력 (Enter 전송)" : "입장 후 메시지를 입력할 수 있습니다.";
+  if (messageForm && messageInput) {
+    const submitBtn = messageForm.querySelector("button");
+    messageInput.disabled = !enabled;
+    submitBtn.disabled = !enabled;
+    messageInput.placeholder = enabled ? "메시지 입력 (Enter 전송)" : "입장 후 메시지를 입력할 수 있습니다.";
+  }
+
+  if (quickMessageForm && quickMessageInput) {
+    const quickSubmitBtn = quickMessageForm.querySelector("button");
+    quickMessageInput.disabled = !enabled;
+    quickSubmitBtn.disabled = !enabled;
+    quickMessageInput.placeholder = enabled
+      ? "메시지 빠른 입력 (Enter 전송)"
+      : "입장 후 메시지를 입력할 수 있습니다.";
+  }
+}
+
+async function submitMessageFromInput(inputEl) {
+  if (!inputEl) return;
+  const text = inputEl.value;
+  inputEl.value = "";
+  await sendMessage(text);
 }
 
 function createDeskAgentNode(agent, facing = "down") {
@@ -772,9 +794,14 @@ function bindCommonActions() {
   if (messageForm && messageInput) {
     messageForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const text = messageInput.value;
-      messageInput.value = "";
-      await sendMessage(text);
+      await submitMessageFromInput(messageInput);
+    });
+  }
+
+  if (quickMessageForm && quickMessageInput) {
+    quickMessageForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await submitMessageFromInput(quickMessageInput);
     });
   }
 }
