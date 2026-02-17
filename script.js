@@ -804,10 +804,11 @@ function bindCommonActions() {
       await submitMessageFromInput(quickMessageInput);
     });
 
-    quickMessageInput.addEventListener("keydown", async (event) => {
+    quickMessageInput.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;
+      if (event.isComposing || event.keyCode === 229) return;
       event.preventDefault();
-      await submitMessageFromInput(quickMessageInput);
+      quickMessageForm.requestSubmit();
     });
   }
 }
