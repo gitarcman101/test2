@@ -363,8 +363,6 @@ function renderFixedPm() {
 }
 
 function renderEmptyDesk(slot, seatId) {
-  if (seatId === "U1") return;
-
   const emptyNode = document.createElement("article");
   emptyNode.className = "desk-agent is-empty";
 
