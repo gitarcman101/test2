@@ -276,9 +276,9 @@ body {
   border: 1px solid rgba(136, 139, 122, 0.55);
   background: linear-gradient(180deg, rgba(250, 250, 244, 0.8), rgba(228, 226, 213, 0.86));
   border-radius: 10px;
-  padding: 10px 8px 12px;
+  padding: 10px 10px 12px;
   display: grid;
-  justify-items: center;
+  justify-items: stretch;
   gap: 8px;
 }
 
@@ -287,6 +287,92 @@ body {
   font-size: 11px;
   letter-spacing: 1px;
   color: #5a5d52;
+  text-align: center;
+}
+
+.meeting-count {
+  margin: 0;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  color: #5e6154;
+}
+
+.meeting-enter-btn {
+  border: 1px solid rgba(132, 141, 109, 0.62);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f8f6ea, #e1ddcc);
+  color: #4c4e45;
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.meeting-enter-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.meeting-avatars {
+  min-height: 118px;
+  border: 1px dashed rgba(136, 139, 122, 0.45);
+  border-radius: 8px;
+  padding: 6px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  background: rgba(255, 255, 250, 0.45);
+}
+
+.meeting-empty {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  color: #73766a;
+}
+
+.meeting-agent {
+  border: 1px solid rgba(132, 141, 109, 0.55);
+  border-radius: 8px;
+  background: #f5f3e7;
+  color: #4a4b42;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.meeting-agent-avatar {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.meeting-agent-name {
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.meeting-agent.is-selected {
+  box-shadow: 0 0 0 1px rgba(136, 151, 94, 0.55);
+}
+
+.meeting-agent.status-active { background: rgba(140, 155, 99, 0.22); }
+.meeting-agent.status-focus { background: rgba(240, 231, 167, 0.45); }
+.meeting-agent.status-idle { background: rgba(196, 197, 187, 0.45); }
+.meeting-agent.status-offline { background: rgba(158, 157, 145, 0.32); }
+
+.message-panel {
+  display: grid;
+  gap: 10px;
 }
 
 .desk-slot {
@@ -295,11 +381,6 @@ body {
   min-height: 128px;
   display: grid;
   place-items: end center;
-}
-
-.meeting-slot {
-  min-height: 118px;
-  place-items: center;
 }
 
 .desk-agent {
@@ -504,11 +585,91 @@ body {
   cursor: default;
 }
 
-.meeting-slot .desk-agent.is-meeting-entry {
-  opacity: 0.96;
-  width: auto;
-  gap: 0;
-  margin-top: 22px;
+.message-output {
+  border: 1px solid rgba(149, 151, 137, 0.45);
+  border-radius: 10px;
+  background: rgba(255, 255, 250, 0.55);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+  min-height: 120px;
+}
+
+.message-history {
+  border: 1px dashed rgba(136, 139, 122, 0.5);
+  border-radius: 8px;
+  padding: 4px 8px 6px;
+}
+
+.message-history summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: #5d6053;
+}
+
+.message-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.message-item {
+  border: 1px solid rgba(149, 151, 137, 0.35);
+  border-radius: 8px;
+  background: rgba(248, 246, 236, 0.85);
+  padding: 6px 8px;
+}
+
+.message-meta {
+  display: block;
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 10px;
+  color: #66695e;
+  margin-bottom: 2px;
+}
+
+.message-text {
+  margin: 0;
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 12px;
+  color: #46483f;
+  word-break: break-word;
+}
+
+.message-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.message-form input {
+  height: 36px;
+  border: 1px solid #a7aa97;
+  border-radius: 8px;
+  background: #fffffa;
+  padding: 0 10px;
+  color: #474a3d;
+  font-size: 14px;
+}
+
+.message-form button {
+  height: 36px;
+  border: 1px solid #869266;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #9cae6d, #85955e);
+  color: #f7f9ef;
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.message-form button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .nickname-modal {
@@ -597,7 +758,7 @@ body {
   }
 
   .meeting-area {
-    grid-template-columns: repeat(2, minmax(130px, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .p2 { top: 292px; }
@@ -605,5 +766,9 @@ body {
   .fixed-pm-seat {
     top: 64px;
     left: 60px;
+  }
+
+  .message-form {
+    grid-template-columns: 1fr;
   }
 }

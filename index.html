@@ -68,16 +68,37 @@
             <aside class="meeting-area">
               <div class="meeting-room">
                 <h3>회의실 A</h3>
-                <div class="desk-slot meeting-slot" data-seat-id="R1"></div>
+                <p class="meeting-count">참여 <span data-room-count="A">0/10</span></p>
+                <button class="meeting-enter-btn" type="button" data-room-enter="A">회의실 A 입장</button>
+                <div class="meeting-avatars" data-room-avatars="A"></div>
               </div>
               <div class="meeting-room">
                 <h3>회의실 B</h3>
-                <div class="desk-slot meeting-slot" data-seat-id="R2"></div>
+                <p class="meeting-count">참여 <span data-room-count="B">0/10</span></p>
+                <button class="meeting-enter-btn" type="button" data-room-enter="B">회의실 B 입장</button>
+                <div class="meeting-avatars" data-room-avatars="B"></div>
               </div>
             </aside>
           </div>
         </div>
       </div>
+    </section>
+
+    <section class="panel message-panel">
+      <header class="panel-head">
+        <h2>공용 메시지</h2>
+      </header>
+      <div class="message-output" id="messageOutput">
+        <details class="message-history" id="messageHistory" hidden>
+          <summary id="messageHistorySummary">이전 메시지 0개</summary>
+          <ul class="message-list" id="messageHistoryList"></ul>
+        </details>
+        <ul class="message-list message-recent" id="messageRecent"></ul>
+      </div>
+      <form class="message-form" id="messageForm">
+        <input id="messageInput" type="text" maxlength="220" placeholder="메시지 입력 (Enter 전송)" />
+        <button type="submit">전송</button>
+      </form>
     </section>
 
     <section class="panel crew-panel">
