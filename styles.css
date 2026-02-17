@@ -248,22 +248,40 @@ body {
 
 .plant {
   position: absolute;
-  left: 26px;
-  width: 20px;
-  height: 30px;
-  background: #a87c4e;
-  border-radius: 0 0 4px 4px;
+  left: 30px;
+  width: 16px;
+  height: 44px;
+  background: linear-gradient(180deg, #b98a58 0%, #9f7147 100%);
+  border-radius: 3px 3px 7px 7px;
+  box-shadow: inset -2px 0 0 rgba(125, 82, 50, 0.35);
 }
 
 .plant::before {
   content: "";
   position: absolute;
-  left: -4px;
-  top: -19px;
-  width: 28px;
-  height: 24px;
-  background: linear-gradient(180deg, #a8b57b, #87935e);
-  clip-path: polygon(50% 0%, 100% 58%, 73% 100%, 27% 100%, 0 58%);
+  left: -22px;
+  top: -30px;
+  width: 60px;
+  height: 44px;
+  background:
+    radial-gradient(ellipse 26px 11px at 50% 36%, #88ba78 0 66%, transparent 67%),
+    radial-gradient(ellipse 22px 9px at 18% 50%, #79ab6a 0 68%, transparent 69%),
+    radial-gradient(ellipse 22px 9px at 82% 50%, #79ab6a 0 68%, transparent 69%),
+    radial-gradient(ellipse 20px 8px at 20% 72%, #6c9d5f 0 70%, transparent 71%),
+    radial-gradient(ellipse 20px 8px at 80% 72%, #6c9d5f 0 70%, transparent 71%);
+}
+
+.plant::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: -12px;
+  width: 22px;
+  height: 16px;
+  background:
+    radial-gradient(circle at 24% 60%, #6e4728 0 24%, transparent 25%),
+    radial-gradient(circle at 50% 42%, #7a5230 0 24%, transparent 25%),
+    radial-gradient(circle at 76% 60%, #684325 0 24%, transparent 25%);
 }
 
 .p1 { top: 72px; }
