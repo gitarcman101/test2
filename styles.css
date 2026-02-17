@@ -414,6 +414,78 @@ body {
 .status-pill.status-idle { background: var(--status-idle); color: #505149; }
 .status-pill.status-offline { background: var(--status-offline); color: #f1f1ed; }
 
+.desk-agent.is-empty {
+  opacity: 0.52;
+}
+
+.desk-agent.is-empty .desk {
+  filter: grayscale(0.3);
+}
+
+.empty-tag {
+  margin-top: 2px;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  color: #707368;
+}
+
+.nickname-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: rgba(66, 68, 58, 0.35);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+}
+
+.nickname-modal.is-open {
+  display: grid;
+}
+
+.nickname-card {
+  width: min(420px, calc(100% - 24px));
+  padding: 18px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(126, 132, 102, 0.52);
+  background: linear-gradient(180deg, #f9f7ec 0%, #e6e2d2 100%);
+  box-shadow: 0 16px 24px rgba(70, 72, 59, 0.22);
+  display: grid;
+  gap: 10px;
+}
+
+.nickname-card h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #4e5144;
+}
+
+.nickname-card p {
+  margin: 0;
+  font-size: 13px;
+  color: #66695e;
+}
+
+.nickname-card input {
+  height: 40px;
+  border: 1px solid #a7aa97;
+  border-radius: 8px;
+  background: #fffffa;
+  padding: 0 10px;
+  color: #474a3d;
+  font-size: 14px;
+}
+
+.nickname-card button {
+  height: 38px;
+  border: 1px solid #869266;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #9cae6d, #85955e);
+  color: #f7f9ef;
+  font-family: "Orbitron", sans-serif;
+  cursor: pointer;
+}
+
 @media (max-width: 760px) {
   .panel-head h1,
   .panel-head h2 { font-size: 13px; }

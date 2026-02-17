@@ -1,4 +1,4 @@
-﻿const STATUS_ORDER = ["active", "focus", "idle", "offline"];
+const STATUS_ORDER = ["active", "focus", "idle", "offline"];
 const STATUS_LABEL = {
   active: "활동중",
   focus: "집중",
@@ -6,30 +6,56 @@ const STATUS_LABEL = {
   offline: "오프라인"
 };
 
-const agents = [
-  { id: "ops-01", name: "김총괄", role: "운영", status: "focus", avatar: "assets/avatars/avatar-ops.svg" },
-  { id: "pm-02", name: "이피엠", role: "PM", status: "active", avatar: "assets/avatars/avatar-pm.svg" },
-  { id: "be-03", name: "박백엔", role: "백엔드", status: "active", avatar: "assets/avatars/avatar-be.svg" },
-  { id: "data-04", name: "온데이터", role: "데이터", status: "idle", avatar: "assets/avatars/avatar-data.svg" },
-  { id: "design-05", name: "한디자인", role: "디자인", status: "offline", avatar: "assets/avatars/avatar-design.svg" },
-  { id: "plan-06", name: "정기획", role: "기획", status: "active", avatar: "assets/avatars/avatar-plan.svg" },
-  { id: "qa-07", name: "조큐에이", role: "QA", status: "idle", avatar: "assets/avatars/avatar-qa.svg" }
-];
+const NICKNAME_KEY = "agentoffice_nickname_v1";
 
-const appState = { selectedAgentId: "pm-02" };
-
-const officeSlots = document.querySelectorAll(".desk-slot");
+const deskSlots = document.querySelectorAll(".desk-slot");
 const crewGrid = document.querySelector("#crewGrid");
 const deskTemplate = document.querySelector("#deskAvatarTemplate");
 const cardTemplate = document.querySelector("#crewCardTemplate");
 const copyLinkBtn = document.querySelector("#copyLinkBtn");
 const shuffleStatusBtn = document.querySelector("#shuffleStatusBtn");
+const nicknameModal = document.querySelector("#nicknameModal");
+const nicknameForm = document.querySelector("#nicknameForm");
+const nicknameInput = document.querySelector("#nicknameInput");
+
+const appState = {
+  selectedAgentId: "pm-02",
+  nickname: "",
+  agents: []
+};
+
+function buildAgents(nickname) {
+  return [
+    { id: "pm-02", name: "김피엠", role: "PM", status: "active", avatar: "assets/avatars/avatar-pm.svg" },
+    { id: "be-03", name: nickname, role: "팀원", status: "focus", avatar: "assets/avatars/avatar-ops.svg" }
+  ];
+}
+
+function renderEmptyDesk(slot) {
+  const emptyNode = document.createElement("article");
+  emptyNode.className = "desk-agent is-empty";
+
+  const desk = document.createElement("div");
+  desk.className = "desk";
+
+  const label = document.createElement("span");
+  label.className = "empty-tag";
+  label.textContent = "빈 자리";
+
+  emptyNode.appendChild(desk);
+  emptyNode.appendChild(label);
+  slot.appendChild(emptyNode);
+}
 
 function renderOffice() {
-  officeSlots.forEach((slot) => {
+  deskSlots.forEach((slot) => {
     slot.textContent = "";
-    const agent = agents.find((item) => item.id === slot.dataset.agentId);
-    if (!agent) return;
+    const agent = appState.agents.find((item) => item.id === slot.dataset.agentId);
+
+    if (!agent) {
+      renderEmptyDesk(slot);
+      return;
+    }
 
     const node = deskTemplate.content.firstElementChild.cloneNode(true);
     const image = node.querySelector(".avatar-img");
@@ -51,7 +77,7 @@ function renderOffice() {
 function renderCrew() {
   crewGrid.textContent = "";
 
-  agents.forEach((agent) => {
+  appState.agents.forEach((agent) => {
     const card = cardTemplate.content.firstElementChild.cloneNode(true);
     const selectBtn = card.querySelector(".crew-select");
     const image = card.querySelector(".crew-avatar-img");
@@ -83,13 +109,13 @@ function rerender() {
 }
 
 function selectAgent(agentId) {
-  if (!agents.some((agent) => agent.id === agentId)) return;
+  if (!appState.agents.some((agent) => agent.id === agentId)) return;
   appState.selectedAgentId = agentId;
   rerender();
 }
 
 function cycleStatus(agentId) {
-  const target = agents.find((agent) => agent.id === agentId);
+  const target = appState.agents.find((agent) => agent.id === agentId);
   if (!target) return;
 
   const current = STATUS_ORDER.indexOf(target.status);
@@ -98,7 +124,7 @@ function cycleStatus(agentId) {
 }
 
 function shuffleStatuses() {
-  agents.forEach((agent) => {
+  appState.agents.forEach((agent) => {
     agent.status = STATUS_ORDER[Math.floor(Math.random() * STATUS_ORDER.length)];
   });
   rerender();
@@ -116,6 +142,40 @@ async function copyShareLink() {
   }
 }
 
+function startWithNickname(rawNickname) {
+  const nickname = (rawNickname || "").trim().slice(0, 12);
+  if (!nickname) return;
+
+  appState.nickname = nickname;
+  appState.agents = buildAgents(nickname);
+  appState.selectedAgentId = "be-03";
+  localStorage.setItem(NICKNAME_KEY, nickname);
+
+  nicknameModal.classList.remove("is-open");
+  rerender();
+}
+
+function init() {
+  const saved = localStorage.getItem(NICKNAME_KEY);
+  if (saved) {
+    startWithNickname(saved);
+    return;
+  }
+
+  appState.agents = [{ id: "pm-02", name: "김피엠", role: "PM", status: "active", avatar: "assets/avatars/avatar-pm.svg" }];
+  appState.selectedAgentId = "pm-02";
+  rerender();
+
+  nicknameModal.classList.add("is-open");
+  nicknameInput.focus();
+}
+
+nicknameForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  startWithNickname(nicknameInput.value);
+});
+
 copyLinkBtn.addEventListener("click", copyShareLink);
 shuffleStatusBtn.addEventListener("click", shuffleStatuses);
-rerender();
+
+init();

@@ -61,6 +61,15 @@
     </section>
   </main>
 
+  <div class="nickname-modal is-open" id="nicknameModal" role="dialog" aria-modal="true" aria-labelledby="nicknameTitle">
+    <form class="nickname-card" id="nicknameForm">
+      <h3 id="nicknameTitle">닉네임 입력</h3>
+      <p>처음 접속입니다. 사용할 닉네임을 입력하세요.</p>
+      <input id="nicknameInput" name="nickname" type="text" maxlength="12" placeholder="예: 김디자인" required />
+      <button type="submit">입장하기</button>
+    </form>
+  </div>
+
   <template id="deskAvatarTemplate">
     <article class="desk-agent">
       <div class="status-fire" aria-hidden="true"></div>
