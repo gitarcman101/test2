@@ -31,6 +31,7 @@ jobs:
           cp index.html site/
           cp styles.css site/
           cp script.js site/
+          cp supabase-config.js site/
           cp -R assets site/
           touch site/.nojekyll
 

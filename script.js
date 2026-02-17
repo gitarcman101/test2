@@ -1,6 +1,4 @@
-import * as Y from "https://cdn.jsdelivr.net/npm/yjs@13.6.18/+esm";
-import { WebsocketProvider } from "https://cdn.jsdelivr.net/npm/y-websocket@1.5.0/+esm";
-import { WebrtcProvider } from "https://cdn.jsdelivr.net/npm/y-webrtc@10.3.0/+esm";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 const STATUS_ORDER = ["active", "focus", "idle", "offline"];
 const STATUS_LABEL = {
@@ -13,8 +11,9 @@ const STATUS_LABEL = {
 const CLIENT_KEY = "agentoffice_client_v1";
 const NICKNAME_KEY = "agentoffice_nickname_v2";
 const ROOM_PARAM = "room";
-const PRESENCE_TTL_MS = 35000;
-const HEARTBEAT_MS = 10000;
+const SB_URL_KEY = "agentoffice_sb_url_v1";
+const SB_ANON_KEY = "agentoffice_sb_anon_v1";
+const HEARTBEAT_MS = 12000;
 
 const PM_SEAT_ID = "U2";
 const SEAT_IDS = ["U1", "U2", "U3", "U4", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "R1", "R2"];
@@ -61,9 +60,10 @@ const appState = {
   selectedAgentId: PM_AGENT.id,
   participants: [],
   localJoined: false,
-  updateMyStatus: () => {},
-  wsConnected: false,
-  rtcConnected: false
+  localPresence: null,
+  channel: null,
+  subscribed: false,
+  updateMyStatus: () => {}
 };
 
 function ensureClientId() {
@@ -82,6 +82,23 @@ function resolveRoomId() {
   params.set(ROOM_PARAM, roomId);
   history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
   return roomId;
+}
+
+function resolveSupabaseConfig() {
+  const params = new URLSearchParams(window.location.search);
+
+  const queryUrl = params.get("sbUrl") || "";
+  const queryKey = params.get("sbKey") || "";
+  if (queryUrl && queryKey) {
+    localStorage.setItem(SB_URL_KEY, queryUrl);
+    localStorage.setItem(SB_ANON_KEY, queryKey);
+  }
+
+  const globalConfig = window.SUPABASE_CONFIG || {};
+  const url = (globalConfig.url || localStorage.getItem(SB_URL_KEY) || "").trim();
+  const anonKey = (globalConfig.anonKey || localStorage.getItem(SB_ANON_KEY) || "").trim();
+
+  return { url, anonKey };
 }
 
 function hashText(text) {
@@ -214,156 +231,140 @@ function pickSeatForLocal(currentSeatId) {
   if (currentSeatId && !takenByOthers.has(currentSeatId) && currentSeatId !== PM_SEAT_ID) {
     return currentSeatId;
   }
-
   return AVAILABLE_SEATS.find((seatId) => !takenByOthers.has(seatId)) || null;
 }
 
-function updateSyncLabel() {
-  const anyConnected = appState.wsConnected || appState.rtcConnected;
-  const activeCount = appState.participants.length + 1; // + PM
-  const mode = anyConnected ? "연결됨" : "재연결중";
-  syncInfo.textContent = `${mode} / 접속 ${activeCount}명 / ${new Date().toLocaleTimeString()}`;
+function updateSyncLabel(text) {
+  syncInfo.textContent = text;
 }
 
-function initRealtime() {
-  appState.clientId = ensureClientId();
-  appState.roomId = resolveRoomId();
-  roomCode.textContent = `룸 ${appState.roomId.toUpperCase()}`;
+function parsePresenceState(channel) {
+  const state = channel.presenceState();
+  const latestByClient = new Map();
 
-  const doc = new Y.Doc();
-  const wsProvider = new WebsocketProvider("wss://demos.yjs.dev", `agentoffice-${appState.roomId}`, doc);
-  const rtcProvider = new WebrtcProvider(`agentoffice-${appState.roomId}`, doc, {
-    signaling: [
-      "wss://signaling.yjs.dev",
-      "wss://y-webrtc-signaling-eu.herokuapp.com",
-      "wss://y-webrtc-signaling-us.herokuapp.com"
-    ],
-    maxConns: 20,
-    filterBcConns: false
+  Object.entries(state).forEach(([key, items]) => {
+    const list = Array.isArray(items) ? items : [];
+    list.forEach((item) => {
+      if (!item || !item.clientId || !item.nickname || !item.seatId) return;
+      const prev = latestByClient.get(item.clientId);
+      if (!prev || (item.updatedAt || 0) >= (prev.updatedAt || 0)) {
+        latestByClient.set(item.clientId, item);
+      }
+    });
   });
 
-  const participantsMap = doc.getMap("participants");
+  return Array.from(latestByClient.values()).map((item) => ({
+    id: item.clientId,
+    clientId: item.clientId,
+    name: item.nickname,
+    role: getDisplayRole(item.seatId),
+    status: STATUS_ORDER.includes(item.status) ? item.status : "active",
+    avatar: item.avatar || avatarForName(item.nickname),
+    seatId: item.seatId,
+    isLocal: item.clientId === appState.clientId,
+    isPm: false,
+    updatedAt: item.updatedAt || 0
+  }));
+}
 
-  wsProvider.on("status", (event) => {
-    appState.wsConnected = event.status === "connected";
-    updateSyncLabel();
+async function publishPresence(patch = {}) {
+  appState.localPresence = {
+    ...(appState.localPresence || {}),
+    ...patch,
+    clientId: appState.clientId,
+    updatedAt: Date.now()
+  };
+
+  if (!appState.subscribed || !appState.channel) return;
+
+  const result = await appState.channel.track(appState.localPresence);
+  if (result !== "ok") {
+    updateSyncLabel("동기화 지연");
+  }
+}
+
+function refreshParticipants() {
+  if (!appState.channel) return;
+  appState.participants = parsePresenceState(appState.channel).sort(sortBySeat);
+
+  const me = getLocalParticipant();
+  if (appState.localJoined && me) {
+    const nextSeat = pickSeatForLocal(me.seatId);
+    if (!nextSeat) {
+      appState.channel.untrack();
+      appState.localJoined = false;
+      alert("빈 자리가 없습니다. 잠시 후 다시 시도해주세요.");
+      nicknameModal.classList.add("is-open");
+    } else if (nextSeat !== me.seatId) {
+      publishPresence({ seatId: nextSeat });
+      localStorage.setItem(`${NICKNAME_KEY}:seat:${appState.roomId}`, nextSeat);
+    }
+  }
+
+  rerender(cycleMyStatus);
+}
+
+function tryJoinWithNickname(rawName) {
+  const nickname = (rawName || "").trim().slice(0, 12);
+  if (!nickname) return false;
+
+  refreshParticipants();
+  const preferredSeat = localStorage.getItem(`${NICKNAME_KEY}:seat:${appState.roomId}`) || "";
+  const seatId = pickSeatForLocal(preferredSeat);
+  if (!seatId) {
+    alert("현재 14석이 모두 사용 중입니다.");
+    return false;
+  }
+
+  appState.localJoined = true;
+  appState.selectedAgentId = appState.clientId;
+
+  localStorage.setItem(NICKNAME_KEY, nickname);
+  localStorage.setItem(`${NICKNAME_KEY}:seat:${appState.roomId}`, seatId);
+
+  publishPresence({
+    nickname,
+    seatId,
+    status: "focus",
+    avatar: avatarForName(nickname)
   });
 
-  rtcProvider.on("status", (event) => {
-    appState.rtcConnected = Boolean(event.connected);
-    updateSyncLabel();
-  });
+  nicknameModal.classList.remove("is-open");
+  return true;
+}
 
-  function setMyRecord(patch = {}) {
-    const prev = participantsMap.get(appState.clientId) || {};
-    participantsMap.set(appState.clientId, {
-      ...prev,
-      ...patch,
-      clientId: appState.clientId,
-      updatedAt: Date.now()
-    });
-  }
+function cycleMyStatus() {
+  const me = getLocalParticipant();
+  if (!me) return;
+  const current = STATUS_ORDER.indexOf(me.status);
+  const next = STATUS_ORDER[(current + 1) % STATUS_ORDER.length];
+  publishPresence({ status: next });
+}
 
-  function hydrateParticipants() {
-    const now = Date.now();
-    const next = [];
-    const staleKeys = [];
-
-    participantsMap.forEach((value, key) => {
-      if (!value || typeof value !== "object" || !value.nickname || !value.seatId) {
-        return;
-      }
-
-      const age = now - (value.updatedAt || 0);
-      if (key !== appState.clientId && age > PRESENCE_TTL_MS) {
-        staleKeys.push(key);
-        return;
-      }
-
-      next.push({
-        id: value.clientId,
-        clientId: value.clientId,
-        name: value.nickname,
-        role: getDisplayRole(value.seatId),
-        status: STATUS_ORDER.includes(value.status) ? value.status : "active",
-        avatar: value.avatar || avatarForName(value.nickname),
-        seatId: value.seatId,
-        isLocal: value.clientId === appState.clientId,
-        isPm: false,
-        updatedAt: value.updatedAt || 0
-      });
-    });
-
-    staleKeys.forEach((key) => participantsMap.delete(key));
-    appState.participants = next.sort(sortBySeat);
-
-    const me = getLocalParticipant();
-    if (appState.localJoined && me) {
-      const nextSeat = pickSeatForLocal(me.seatId);
-      if (!nextSeat) {
-        participantsMap.delete(appState.clientId);
-        appState.localJoined = false;
-        alert("빈 자리가 없습니다. 잠시 후 다시 시도해주세요.");
-        nicknameModal.classList.add("is-open");
-      } else if (nextSeat !== me.seatId) {
-        setMyRecord({ seatId: nextSeat });
-        localStorage.setItem(`${NICKNAME_KEY}:seat:${appState.roomId}`, nextSeat);
-      }
-    }
-
-    updateSyncLabel();
-    rerender(cycleMyStatus);
-  }
-
-  function tryJoinWithNickname(rawName) {
-    const nickname = (rawName || "").trim().slice(0, 12);
-    if (!nickname) {
-      return false;
-    }
-
-    hydrateParticipants();
-    const preferredSeat = localStorage.getItem(`${NICKNAME_KEY}:seat:${appState.roomId}`) || "";
-    const seatId = pickSeatForLocal(preferredSeat);
-    if (!seatId) {
-      alert("현재 14석이 모두 사용 중입니다.");
-      return false;
-    }
-
-    localStorage.setItem(NICKNAME_KEY, nickname);
-    localStorage.setItem(`${NICKNAME_KEY}:seat:${appState.roomId}`, seatId);
-
-    appState.localJoined = true;
-    setMyRecord({
-      nickname,
-      seatId,
-      status: "focus",
-      avatar: avatarForName(nickname)
-    });
-    appState.selectedAgentId = appState.clientId;
-    nicknameModal.classList.remove("is-open");
-    return true;
-  }
-
-  function cycleMyStatus() {
-    const me = getLocalParticipant();
-    if (!me) {
-      return;
-    }
-    const current = STATUS_ORDER.indexOf(me.status);
-    const next = STATUS_ORDER[(current + 1) % STATUS_ORDER.length];
-    setMyRecord({ status: next });
-  }
-
-  appState.updateMyStatus = cycleMyStatus;
-
-  participantsMap.observe(hydrateParticipants);
-
+function initNicknameFlow() {
   nicknameForm.addEventListener("submit", (event) => {
     event.preventDefault();
     tryJoinWithNickname(nicknameInput.value);
   });
 
-  shuffleStatusBtn.addEventListener("click", cycleMyStatus);
+  const savedNickname = localStorage.getItem(NICKNAME_KEY);
+  if (savedNickname) {
+    nicknameInput.value = savedNickname;
+    const joined = tryJoinWithNickname(savedNickname);
+    if (!joined) {
+      nicknameModal.classList.add("is-open");
+      nicknameInput.focus();
+    }
+  } else {
+    rerender(cycleMyStatus);
+    nicknameModal.classList.add("is-open");
+    nicknameInput.focus();
+  }
+}
+
+function bindCommonActions() {
+  appState.updateMyStatus = cycleMyStatus;
+
   copyLinkBtn.addEventListener("click", async () => {
     const url = new URL(window.location.href);
     url.searchParams.set(ROOM_PARAM, appState.roomId);
@@ -378,36 +379,87 @@ function initRealtime() {
     }
   });
 
-  const savedNickname = localStorage.getItem(NICKNAME_KEY);
-  if (savedNickname) {
-    nicknameInput.value = savedNickname;
-    const joined = tryJoinWithNickname(savedNickname);
-    if (!joined) {
-      nicknameModal.classList.add("is-open");
-      nicknameInput.focus();
-    }
-  } else {
-    appState.participants = [];
-    rerender(cycleMyStatus);
-    updateSyncLabel();
+  shuffleStatusBtn.addEventListener("click", cycleMyStatus);
+}
+
+function initSupabaseRealtime() {
+  appState.clientId = ensureClientId();
+  appState.roomId = resolveRoomId();
+  roomCode.textContent = `룸 ${appState.roomId.toUpperCase()}`;
+
+  const config = resolveSupabaseConfig();
+  if (!config.url || !config.anonKey) {
+    updateSyncLabel("Supabase 설정 필요");
+    syncInfo.title = "supabase-config.js 또는 ?sbUrl=&sbKey= 로 설정하세요.";
+    rerender();
     nicknameModal.classList.add("is-open");
-    nicknameInput.focus();
+    return;
   }
 
-  const heartbeat = setInterval(() => {
-    if (!appState.localJoined) {
-      return;
+  const supabase = createClient(config.url, config.anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    },
+    realtime: {
+      params: { eventsPerSecond: 10 }
     }
-    setMyRecord({});
+  });
+
+  const channel = supabase.channel(`room:${appState.roomId}`, {
+    config: {
+      presence: { key: appState.clientId },
+      broadcast: { self: true, ack: true }
+    }
+  });
+  appState.channel = channel;
+
+  channel
+    .on("presence", { event: "sync" }, () => {
+      refreshParticipants();
+      updateSyncLabel(`연결됨 / 접속 ${appState.participants.length + 1}명 / ${new Date().toLocaleTimeString()}`);
+    })
+    .on("presence", { event: "join" }, () => {
+      refreshParticipants();
+    })
+    .on("presence", { event: "leave" }, () => {
+      refreshParticipants();
+    })
+    .subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        appState.subscribed = true;
+        updateSyncLabel("연결됨");
+        if (appState.localJoined && appState.localPresence) {
+          await publishPresence({});
+        }
+      } else if (status === "CHANNEL_ERROR") {
+        appState.subscribed = false;
+        updateSyncLabel("채널 오류");
+      } else if (status === "TIMED_OUT") {
+        appState.subscribed = false;
+        updateSyncLabel("연결 시간초과");
+      } else if (status === "CLOSED") {
+        appState.subscribed = false;
+        updateSyncLabel("연결 종료");
+      }
+    });
+
+  bindCommonActions();
+  initNicknameFlow();
+
+  const heartbeat = setInterval(() => {
+    if (appState.localJoined) {
+      publishPresence({});
+    }
   }, HEARTBEAT_MS);
 
-  window.addEventListener("beforeunload", () => {
+  window.addEventListener("beforeunload", async () => {
     clearInterval(heartbeat);
-    participantsMap.delete(appState.clientId);
-    wsProvider.destroy();
-    rtcProvider.destroy();
-    doc.destroy();
+    if (appState.channel) {
+      try { await appState.channel.untrack(); } catch (_error) {}
+      supabase.removeChannel(appState.channel);
+    }
   });
 }
 
-initRealtime();
+initSupabaseRealtime();
