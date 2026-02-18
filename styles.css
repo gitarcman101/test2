@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg-1: #f7f6ef;
   --bg-2: #ece9dc;
   --office-floor: #d8d6cb;
@@ -448,7 +448,7 @@ body {
   filter:
     drop-shadow(0 1px 1px rgba(29, 32, 46, 0.35))
     drop-shadow(0 2px 3px rgba(55, 68, 98, 0.2));
-  transform: perspective(100px) rotateX(8deg);
+  transform: perspective(100px) rotateX(8deg) scale(1.7);
 }
 
 .meeting-agent-name {
@@ -540,7 +540,7 @@ body {
   filter:
     drop-shadow(0 1px 1px rgba(29, 32, 46, 0.45))
     drop-shadow(0 4px 6px rgba(55, 68, 98, 0.22));
-  transform: perspective(120px) rotateX(8deg);
+  transform: perspective(120px) rotateX(8deg) scale(1.7);
 }
 
 .name-tag {
