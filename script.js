@@ -72,6 +72,8 @@ const worldLayer = document.querySelector("#worldLayer");
 const officeMap = document.querySelector(".office-map");
 const meetingScene = document.querySelector("#meetingScene");
 const meetingSceneMap = document.querySelector("#meetingSceneMap");
+const meetingSceneTable = document.querySelector(".meeting-scene-table");
+const meetingSceneDoor = document.querySelector(".meeting-scene-door");
 const meetingSceneLayer = document.querySelector("#meetingSceneLayer");
 const meetingBackBtn = document.querySelector("#meetingBackBtn");
 const crewGrid = document.querySelector("#crewGrid");
@@ -129,7 +131,7 @@ const appState = {
   desks: [],
   roomZones: {},
   sceneMode: "office",
-  meetingLocalPos: { x: 52, y: 70 },
+  meetingLocalPos: { x: 52, y: 86 },
   pressedKeys: new Set(),
   lastDirection: "down",
   moveRaf: 0,
@@ -376,9 +378,35 @@ function clampMeetingPos(pos) {
   };
 }
 
+function getMeetingSceneGeometry() {
+  if (!meetingSceneMap || !meetingSceneTable || !meetingSceneDoor) return null;
+  const mapRect = meetingSceneMap.getBoundingClientRect();
+  if (!mapRect.width || !mapRect.height) return null;
+
+  const tableRectRaw = meetingSceneTable.getBoundingClientRect();
+  const doorRectRaw = meetingSceneDoor.getBoundingClientRect();
+
+  const tableCenter = {
+    x: ((tableRectRaw.left + tableRectRaw.width / 2 - mapRect.left) / mapRect.width) * 100,
+    y: ((tableRectRaw.top + tableRectRaw.height / 2 - mapRect.top) / mapRect.height) * 100
+  };
+  const tableRadius = {
+    x: (tableRectRaw.width / mapRect.width) * 50,
+    y: (tableRectRaw.height / mapRect.height) * 50
+  };
+  const doorRect = {
+    x: ((doorRectRaw.left - mapRect.left) / mapRect.width) * 100,
+    y: ((doorRectRaw.top - mapRect.top) / mapRect.height) * 100,
+    w: (doorRectRaw.width / mapRect.width) * 100,
+    h: (doorRectRaw.height / mapRect.height) * 100
+  };
+
+  return { tableCenter, tableRadius, doorRect };
+}
+
 function renderMeetingScene() {
   if (!meetingSceneLayer) return;
-  const localPos = clampMeetingPos(appState.meetingLocalPos || { x: 52, y: 70 });
+  const localPos = clampMeetingPos(appState.meetingLocalPos || { x: 52, y: 86 });
   appState.meetingLocalPos = localPos;
   const members = appState.participants
     .filter((agent) => isParticipantInMeetingA(agent))
@@ -467,7 +495,7 @@ function moveLocalOutFromMeetingA() {
   me.updatedAt = Date.now();
   me.role = getDisplayRole(me.x, me.y);
   appState.sceneMode = "office";
-  appState.meetingLocalPos = { x: 52, y: 70 };
+  appState.meetingLocalPos = { x: 52, y: 86 };
   queuePresencePatch({ x: me.x, y: me.y, role: me.role }, true);
   broadcastMove(me.x, me.y, me.dir || "down");
   rerender(cycleMyStatus);
@@ -479,21 +507,29 @@ function moveLocalInMeetingScene(dx, dy, dir) {
 
   const w = meetingSceneMap.clientWidth || 1;
   const h = meetingSceneMap.clientHeight || 1;
-  const cur = appState.meetingLocalPos || { x: 52, y: 70 };
+  const cur = appState.meetingLocalPos || { x: 52, y: 86 };
   let next = {
     x: cur.x + (dx / w) * 100,
     y: cur.y + (dy / h) * 100
   };
   next = clampMeetingPos(next);
-
-  const nx = (next.x - 50) / 22;
-  const ny = (next.y - 58) / 16;
-  const insideTable = nx * nx + ny * ny < 1;
-  if (insideTable) return;
-
-  if (isInsideMeetingDoor(next)) {
+  const geo = getMeetingSceneGeometry();
+  const doorRect = geo ? geo.doorRect : MEETING_SCENE_DOOR;
+  const inDoor =
+    next.x >= doorRect.x &&
+    next.x <= doorRect.x + doorRect.w &&
+    next.y >= doorRect.y &&
+    next.y <= doorRect.y + doorRect.h;
+  if (inDoor || isInsideMeetingDoor(next)) {
     moveLocalOutFromMeetingA();
     return;
+  }
+
+  if (geo) {
+    const nx = (next.x - geo.tableCenter.x) / Math.max(1, geo.tableRadius.x * 0.92);
+    const ny = (next.y - geo.tableCenter.y) / Math.max(1, geo.tableRadius.y * 0.9);
+    const insideTable = nx * nx + ny * ny < 1;
+    if (insideTable) return;
   }
 
   appState.meetingLocalPos = next;
@@ -931,7 +967,7 @@ function tryJoinWithNickname(rawName) {
   appState.selectedAgentId = appState.clientId;
   appState.lastDirection = "down";
   appState.sceneMode = "office";
-  appState.meetingLocalPos = { x: 52, y: 70 };
+  appState.meetingLocalPos = { x: 52, y: 86 };
   localStorage.setItem(NICKNAME_KEY, nickname);
   appState.localPresence = {
     clientId: appState.clientId,
@@ -1031,7 +1067,7 @@ function moveLocalBy(dx, dy, dir) {
   appState.lastDirection = dir;
   if (detectRoomIdAt(me.x, me.y) === "A") {
     appState.sceneMode = "meetingA";
-    appState.meetingLocalPos = { x: 52, y: 70 };
+    appState.meetingLocalPos = { x: 52, y: 86 };
     me.role = "회의실 A";
   }
   queuePresencePatch({ x: me.x, y: me.y, dir: me.dir, role: me.role });
@@ -1056,7 +1092,7 @@ function moveToMeetingRoom(roomId) {
   me.role = getDisplayRole(me.x, me.y);
   if (roomId === "A") {
     appState.sceneMode = "meetingA";
-    appState.meetingLocalPos = { x: 52, y: 70 };
+    appState.meetingLocalPos = { x: 52, y: 86 };
     me.role = "회의실 A";
   }
   queuePresencePatch({ x: me.x, y: me.y, role: me.role }, true);
