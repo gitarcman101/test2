@@ -436,6 +436,28 @@ body {
     0 8px 18px rgba(84, 94, 84, 0.2);
 }
 
+.meeting-scene-door {
+  position: absolute;
+  left: 0;
+  top: 42%;
+  width: 12%;
+  height: 22%;
+  border-right: 3px solid rgba(76, 92, 68, 0.75);
+  border-top: 2px solid rgba(76, 92, 68, 0.75);
+  border-bottom: 2px solid rgba(76, 92, 68, 0.75);
+  border-radius: 0 8px 8px 0;
+  background: linear-gradient(90deg, rgba(240, 246, 232, 0.7), rgba(198, 216, 189, 0.58));
+  display: grid;
+  place-items: center;
+}
+
+.meeting-scene-door span {
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #4f5d47;
+}
+
 .meeting-scene-layer {
   position: absolute;
   inset: 0;
@@ -473,6 +495,11 @@ body {
 
 .meeting-scene-agent.is-selected .meeting-scene-name {
   box-shadow: 0 0 0 1px rgba(136, 151, 94, 0.58);
+}
+
+.meeting-scene-agent.is-local .meeting-scene-name {
+  background: #8c9b63;
+  color: #f7f9ef;
 }
 
 .meeting-scene-agent .speech-bubble {

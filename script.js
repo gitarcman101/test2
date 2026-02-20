@@ -1,4 +1,4 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+﻿import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 const STATUS_ORDER = ["active", "focus", "idle", "offline"];
 const STATUS_LABEL = {
@@ -34,6 +34,7 @@ const MEETING_ROOM_CAPACITY = 10;
 const MAX_RECENT_MESSAGES = 5;
 const MAX_MESSAGES = 120;
 const MOVE_SPEED = 190;
+const MEETING_SCENE_SPEED = 220;
 
 const AVATARS = [
   "assets/avatars/vecteezy_cute-illustration-designs-for-the-characters-in-the-super_27969749.svg",
@@ -70,6 +71,7 @@ const floorGrid = document.querySelector(".floor-grid");
 const worldLayer = document.querySelector("#worldLayer");
 const officeMap = document.querySelector(".office-map");
 const meetingScene = document.querySelector("#meetingScene");
+const meetingSceneMap = document.querySelector("#meetingSceneMap");
 const meetingSceneLayer = document.querySelector("#meetingSceneLayer");
 const meetingBackBtn = document.querySelector("#meetingBackBtn");
 const crewGrid = document.querySelector("#crewGrid");
@@ -107,6 +109,7 @@ const MEETING_SCENE_POSITIONS = [
   { x: 16, y: 28 }, { x: 30, y: 20 }, { x: 50, y: 16 }, { x: 70, y: 20 }, { x: 84, y: 28 },
   { x: 82, y: 58 }, { x: 68, y: 72 }, { x: 50, y: 78 }, { x: 32, y: 72 }, { x: 18, y: 58 }
 ];
+const MEETING_SCENE_DOOR = { x: 2, y: 42, w: 12, h: 22 };
 
 const appState = {
   roomId: "",
@@ -125,6 +128,8 @@ const appState = {
   spawnPoints: [],
   desks: [],
   roomZones: {},
+  sceneMode: "office",
+  meetingLocalPos: { x: 52, y: 70 },
   pressedKeys: new Set(),
   lastDirection: "down",
   moveRaf: 0,
@@ -348,11 +353,34 @@ function isLocalInRoom(roomId) {
   return detectRoomIdAt(me.x, me.y) === roomId;
 }
 
+function isInsideMeetingDoor(pos) {
+  return (
+    pos.x >= MEETING_SCENE_DOOR.x &&
+    pos.x <= MEETING_SCENE_DOOR.x + MEETING_SCENE_DOOR.w &&
+    pos.y >= MEETING_SCENE_DOOR.y &&
+    pos.y <= MEETING_SCENE_DOOR.y + MEETING_SCENE_DOOR.h
+  );
+}
+
+function clampMeetingPos(pos) {
+  return {
+    x: clamp(pos.x, 6, 94),
+    y: clamp(pos.y, 16, 90)
+  };
+}
+
 function renderMeetingScene() {
   if (!meetingSceneLayer) return;
+  const localPos = clampMeetingPos(appState.meetingLocalPos || { x: 52, y: 70 });
+  appState.meetingLocalPos = localPos;
   const members = appState.participants
     .filter((agent) => detectRoomIdAt(agent.x, agent.y) === "A")
-    .slice(0, MEETING_ROOM_CAPACITY);
+    .slice(0, MEETING_ROOM_CAPACITY)
+    .sort((a, b) => {
+      if (a.isLocal) return -1;
+      if (b.isLocal) return 1;
+      return 0;
+    });
 
   meetingSceneLayer.textContent = "";
   if (!members.length) {
@@ -363,11 +391,15 @@ function renderMeetingScene() {
     return;
   }
 
-  members.forEach((agent, index) => {
-    const pos = MEETING_SCENE_POSITIONS[index % MEETING_SCENE_POSITIONS.length];
+  let seatIndex = 0;
+  members.forEach((agent) => {
+    const pos = agent.isLocal
+      ? localPos
+      : MEETING_SCENE_POSITIONS[(seatIndex++) % MEETING_SCENE_POSITIONS.length];
     const node = document.createElement("article");
     node.className = `meeting-scene-agent status-${agent.status}`;
     if (appState.selectedAgentId === agent.id) node.classList.add("is-selected");
+    if (agent.isLocal) node.classList.add("is-local");
     node.style.left = `${pos.x}%`;
     node.style.top = `${pos.y}%`;
 
@@ -400,12 +432,18 @@ function renderMeetingScene() {
     meetingSceneLayer.appendChild(node);
   });
 }
-
 function updateSceneMode() {
-  const inMeetingA = isLocalInRoom("A");
-  if (officeMap) officeMap.hidden = inMeetingA;
-  if (meetingScene) meetingScene.hidden = !inMeetingA;
-  if (inMeetingA) {
+  const me = getLocalParticipant();
+  const shouldEnterScene = appState.sceneMode === "meetingA" || (me && detectRoomIdAt(me.x, me.y) === "A");
+  if (shouldEnterScene) {
+    appState.sceneMode = "meetingA";
+  }
+
+  const showMeetingScene = appState.sceneMode === "meetingA";
+  if (officeMap) officeMap.hidden = showMeetingScene;
+  if (meetingScene) meetingScene.hidden = !showMeetingScene;
+
+  if (showMeetingScene) {
     renderMeetingScene();
   } else if (meetingSceneLayer) {
     meetingSceneLayer.textContent = "";
@@ -421,11 +459,41 @@ function moveLocalOutFromMeetingA() {
   me.y = target.y;
   me.updatedAt = Date.now();
   me.role = getDisplayRole(me.x, me.y);
+  appState.sceneMode = "office";
+  appState.meetingLocalPos = { x: 52, y: 70 };
   queuePresencePatch({ x: me.x, y: me.y, role: me.role }, true);
   broadcastMove(me.x, me.y, me.dir || "down");
   rerender(cycleMyStatus);
 }
 
+function moveLocalInMeetingScene(dx, dy, dir) {
+  const me = getLocalParticipant();
+  if (!me || !meetingSceneMap) return;
+
+  const w = meetingSceneMap.clientWidth || 1;
+  const h = meetingSceneMap.clientHeight || 1;
+  const cur = appState.meetingLocalPos || { x: 52, y: 70 };
+  let next = {
+    x: cur.x + (dx / w) * 100,
+    y: cur.y + (dy / h) * 100
+  };
+  next = clampMeetingPos(next);
+
+  const nx = (next.x - 50) / 22;
+  const ny = (next.y - 58) / 16;
+  const insideTable = nx * nx + ny * ny < 1;
+  if (insideTable) return;
+
+  if (isInsideMeetingDoor(next)) {
+    moveLocalOutFromMeetingA();
+    return;
+  }
+
+  appState.meetingLocalPos = next;
+  me.dir = dir;
+  me.updatedAt = Date.now();
+  renderMeetingScene();
+}
 function distanceSq(a, b) {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
@@ -828,6 +896,8 @@ function tryJoinWithNickname(rawName) {
   appState.localJoined = true;
   appState.selectedAgentId = appState.clientId;
   appState.lastDirection = "down";
+  appState.sceneMode = "office";
+  appState.meetingLocalPos = { x: 52, y: 70 };
   localStorage.setItem(NICKNAME_KEY, nickname);
   appState.localPresence = {
     clientId: appState.clientId,
@@ -898,7 +968,7 @@ function getMoveIntent() {
 function moveLocalBy(dx, dy, dir) {
   const me = getLocalParticipant();
   if (!me) return;
-  if (isLocalInRoom("A")) return;
+  if (appState.sceneMode === "meetingA") return;
   let nextX = me.x;
   let nextY = me.y;
   if (dx !== 0) {
@@ -925,6 +995,10 @@ function moveLocalBy(dx, dy, dir) {
   me.updatedAt = Date.now();
   me.role = getDisplayRole(nextX, nextY);
   appState.lastDirection = dir;
+  if (detectRoomIdAt(me.x, me.y) === "A") {
+    appState.sceneMode = "meetingA";
+    appState.meetingLocalPos = { x: 52, y: 70 };
+  }
   queuePresencePatch({ x: me.x, y: me.y, dir: me.dir, role: me.role });
   if (moved) broadcastMove(me.x, me.y, me.dir);
   rerender(cycleMyStatus);
@@ -945,6 +1019,10 @@ function moveToMeetingRoom(roomId) {
   me.y = target.y;
   me.updatedAt = Date.now();
   me.role = getDisplayRole(me.x, me.y);
+  if (roomId === "A") {
+    appState.sceneMode = "meetingA";
+    appState.meetingLocalPos = { x: 52, y: 70 };
+  }
   queuePresencePatch({ x: me.x, y: me.y, role: me.role }, true);
   broadcastMove(me.x, me.y, me.dir || "down");
   rerender(cycleMyStatus);
@@ -967,7 +1045,13 @@ function startMoveLoop() {
     const dt = appState.movePrevTs ? Math.min(0.05, (ts - appState.movePrevTs) / 1000) : 0;
     appState.movePrevTs = ts;
     const intent = getMoveIntent();
-    if (intent.moving && dt > 0) moveLocalBy(intent.x * MOVE_SPEED * dt, intent.y * MOVE_SPEED * dt, intent.dir);
+    if (intent.moving && dt > 0) {
+      if (appState.sceneMode === "meetingA") {
+        moveLocalInMeetingScene(intent.x * MEETING_SCENE_SPEED * dt, intent.y * MEETING_SCENE_SPEED * dt, intent.dir);
+      } else {
+        moveLocalBy(intent.x * MOVE_SPEED * dt, intent.y * MOVE_SPEED * dt, intent.dir);
+      }
+    }
     appState.moveRaf = requestAnimationFrame(tick);
   };
   appState.moveRaf = requestAnimationFrame(tick);
@@ -1124,3 +1208,5 @@ function initSupabaseRealtime() {
 }
 
 initSupabaseRealtime();
+
+

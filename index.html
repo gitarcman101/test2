@@ -3,39 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>?꾨컮? ?ㅽ뵾???뚰겕?ㅽ럹?댁뒪</title>
+  <title>아바타 오피스 워크스페이스</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&family=Orbitron:wght@500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=meeting-map-v1" />
+  <link rel="stylesheet" href="styles.css?v=meeting-scene-v2" />
 </head>
 <body>
   <main class="app-shell">
     <header class="top-bar">
       <div class="workspace-meta">
         <div class="sync-strip">
-          <span class="sync-pill is-live" id="syncMode">?ㅼ떆媛??숆린??/span>
-          <span class="room-code" id="roomCode">猷?DEMO-01</span>
-          <span class="sync-time" id="syncInfo">?곌껐以?/span>
+          <span class="sync-pill is-live" id="syncMode">실시간 동기화</span>
+          <span class="room-code" id="roomCode">룸 DEMO-01</span>
+          <span class="sync-time" id="syncInfo">연결 중</span>
         </div>
       </div>
       <div class="workspace-actions">
-        <button class="action-btn" id="copyLinkBtn" type="button">怨듭쑀 留곹겕 蹂듭궗</button>
-        <button class="action-btn" id="shuffleStatusBtn" type="button">???곹깭 蹂寃?/button>
+        <button class="action-btn" id="copyLinkBtn" type="button">공유 링크 복사</button>
+        <button class="action-btn" id="shuffleStatusBtn" type="button">내 상태 변경</button>
       </div>
     </header>
 
     <section class="panel office-panel">
       <header class="panel-head office-head">
-        <h1>?꾨컮? ?ㅽ뵾??/h1>
+        <h1>아바타 오피스</h1>
         <form class="quick-message-form" id="quickMessageForm" action="javascript:void(0);" novalidate>
           <input
             id="quickMessageInput"
             type="text"
             maxlength="220"
-            placeholder="硫붿떆吏 鍮좊Ⅸ ?낅젰 (Enter ?꾩넚)"
+            placeholder="메시지 빠른 입력 (Enter 전송)"
           />
-          <button type="submit">?꾩넚</button>
+          <button type="submit">전송</button>
         </form>
       </header>
 
@@ -72,24 +72,26 @@
 
             <aside class="meeting-area">
               <div class="meeting-room" data-room-id="A">
-                <h3>?뚯쓽??A</h3>
-                <p class="meeting-count">李몄뿬 <span data-room-count="A">0/10</span></p>
-                <button class="meeting-enter-btn" type="button" data-room-enter="A">?뚯쓽??A ?낆옣</button>
+                <h3>회의실 A</h3>
+                <p class="meeting-count">참여 <span data-room-count="A">0/10</span></p>
+                <button class="meeting-enter-btn" type="button" data-room-enter="A">회의실 A 입장</button>
                 <div class="meeting-avatars" data-room-avatars="A"></div>
               </div>
             </aside>
           </div>
-                    <div class="world-layer" id="worldLayer"></div>
+          <div class="world-layer" id="worldLayer"></div>
         </div>
       </div>
+
       <section class="meeting-scene" id="meetingScene" hidden>
         <header class="meeting-scene-head">
           <h2>회의실 A 라운지</h2>
           <button class="action-btn" id="meetingBackBtn" type="button">오피스로 돌아가기</button>
         </header>
-        <div class="meeting-scene-map">
+        <div class="meeting-scene-map" id="meetingSceneMap">
           <div class="meeting-scene-sun"></div>
           <div class="meeting-scene-table"></div>
+          <div class="meeting-scene-door" aria-hidden="true"><span>문</span></div>
           <div class="meeting-scene-layer" id="meetingSceneLayer"></div>
         </div>
       </section>
@@ -97,47 +99,38 @@
 
     <section class="panel message-panel">
       <header class="panel-head">
-        <h2>怨듭슜 硫붿떆吏</h2>
+        <h2>공용 메시지</h2>
       </header>
       <div class="message-output" id="messageOutput">
         <details class="message-history" id="messageHistory" hidden>
-          <summary id="messageHistorySummary">?댁쟾 硫붿떆吏 0媛?/summary>
+          <summary id="messageHistorySummary">이전 메시지 0개</summary>
           <ul class="message-list" id="messageHistoryList"></ul>
         </details>
         <ul class="message-list message-recent" id="messageRecent"></ul>
       </div>
       <form class="message-form" id="messageForm">
-        <input id="messageInput" type="text" maxlength="220" placeholder="硫붿떆吏 ?낅젰 (Enter ?꾩넚)" />
-        <button type="submit">?꾩넚</button>
+        <input id="messageInput" type="text" maxlength="220" placeholder="메시지 입력 (Enter 전송)" />
+        <button type="submit">전송</button>
       </form>
     </section>
 
     <section class="panel crew-panel">
       <header class="panel-head">
-        <h2>?먯씠?꾪듃 ?щ（ ??/h2>
+        <h2>에이전트 크루 덱</h2>
       </header>
-      <p class="deck-hint">?ㅼ떆媛??묒냽??紐⑸줉 (?숈떆 ?묒냽 理쒕? 14紐? 鍮??먮━/?뚯쓽??踰꾪듉?쇰줈 ?대룞)</p>
+      <p class="deck-hint">실시간 접속자 목록 (동시 접속 최대 14명)</p>
       <div class="crew-grid" id="crewGrid"></div>
     </section>
   </main>
 
   <div class="nickname-modal is-open" id="nicknameModal" role="dialog" aria-modal="true" aria-labelledby="nicknameTitle">
     <form class="nickname-card" id="nicknameForm">
-      <h3 id="nicknameTitle">?됰꽕???낅젰</h3>
-      <p>泥섏쓬 ?묒냽?낅땲?? ?ъ슜???됰꽕?꾩쓣 ?낅젰?섏꽭??</p>
-      <input id="nicknameInput" name="nickname" type="text" maxlength="12" placeholder="?? 源?붿옄?? required />
-      <button type="submit">?낆옣?섍린</button>
+      <h3 id="nicknameTitle">닉네임 입력</h3>
+      <p>처음 접속입니다. 사용할 닉네임을 입력해 주세요.</p>
+      <input id="nicknameInput" name="nickname" type="text" maxlength="12" placeholder="예: 홍길동" required />
+      <button type="submit">입장하기</button>
     </form>
   </div>
-
-  <template id="deskAvatarTemplate">
-    <article class="desk-agent">
-      <div class="status-fire" aria-hidden="true"></div>
-      <div class="desk"></div>
-      <img class="avatar-img" alt="" />
-      <button class="name-tag" type="button"></button>
-    </article>
-  </template>
 
   <template id="crewCardTemplate">
     <article class="crew-card">
@@ -150,8 +143,7 @@
     </article>
   </template>
 
-  <script src="supabase-config.js?v=meeting-map-v1"></script>
-  <script type="module" src="script.js?v=meeting-map-v1"></script>
+  <script src="supabase-config.js?v=meeting-scene-v2"></script>
+  <script type="module" src="script.js?v=meeting-scene-v2"></script>
 </body>
 </html>
-
