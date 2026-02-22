@@ -813,12 +813,14 @@ body {
 
 .world-agent {
   position: absolute;
-  transform: translate(-50%, -100%);
+  left: 0;
+  top: 0;
   display: grid;
   justify-items: center;
   gap: 8px;
   min-width: 96px;
   pointer-events: none;
+  will-change: transform;
 }
 
 .world-avatar-img {
@@ -1159,6 +1161,37 @@ body {
   color: #f7f9ef;
   font-family: "Orbitron", sans-serif;
   cursor: pointer;
+}
+
+.touch-joystick {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 90;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.joystick-base {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(80, 82, 72, 0.25);
+  border: 2px solid rgba(80, 82, 72, 0.35);
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.joystick-knob {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(140, 155, 99, 0.7);
+  border: 2px solid rgba(140, 155, 99, 0.9);
+  position: absolute;
+  transition: none;
 }
 
 @media (max-width: 760px) {

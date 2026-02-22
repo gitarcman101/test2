@@ -22,8 +22,6 @@ const CLIENT_KEY = "funoffice_client_v1";
 const NICKNAME_KEY = "funoffice_nickname_v2";
 const AVATAR_KEY = "funoffice_avatar_v1";
 const ROOM_PARAM = "room";
-const SB_URL_KEY = "funoffice_sb_url_v1";
-const SB_ANON_KEY = "funoffice_sb_anon_v1";
 
 const HEARTBEAT_MS = 12000;
 const BUBBLE_TTL_MS = 18000;
@@ -163,16 +161,9 @@ function resolveRoomId() {
 }
 
 function resolveSupabaseConfig() {
-  const params = new URLSearchParams(window.location.search);
-  const queryUrl = params.get("sbUrl") || "";
-  const queryKey = params.get("sbKey") || "";
-  if (queryUrl && queryKey) {
-    localStorage.setItem(SB_URL_KEY, queryUrl);
-    localStorage.setItem(SB_ANON_KEY, queryKey);
-  }
   const globalConfig = window.SUPABASE_CONFIG || {};
-  const url = (globalConfig.url || localStorage.getItem(SB_URL_KEY) || "").trim();
-  const anonKey = (globalConfig.anonKey || localStorage.getItem(SB_ANON_KEY) || "").trim();
+  const url = (globalConfig.url || "").trim();
+  const anonKey = (globalConfig.anonKey || "").trim();
   return { url, anonKey };
 }
 
@@ -642,25 +633,46 @@ function cleanupBubbles() {
   if (changed) rerender(cycleMyStatus);
 }
 
-function createWorldAgentNode(agent) {
-  const node = document.createElement("article");
-  node.className = `world-agent status-${agent.status} dir-${agent.dir || "down"}`;
-  if (appState.selectedAgentId === agent.id) node.classList.add("is-selected");
-  const roomId = detectRoomIdAt(agent.x, agent.y);
-  if (roomId) node.classList.add("is-in-room");
-  node.style.left = `${agent.x}px`;
-  node.style.top = `${agent.y}px`;
 
+const worldNodeCache = new Map();
+
+function updateWorldAgentNode(node, agent) {
+  const newClass = `world-agent status-${agent.status} dir-${agent.dir || "down"}${appState.selectedAgentId === agent.id ? " is-selected" : ""}${detectRoomIdAt(agent.x, agent.y) ? " is-in-room" : ""}`;
+  if (node.className !== newClass) node.className = newClass;
+  node.style.transform = `translate(${agent.x}px, ${agent.y}px) translate(-50%, -100%)`;
+
+  const roomId = detectRoomIdAt(agent.x, agent.y);
   const bubbleText = getBubbleText(agent.clientId);
+  let bubbleEl = node.querySelector(".speech-bubble");
   if (bubbleText) {
-    const bubble = document.createElement("div");
-    bubble.className = "speech-bubble";
-    if (roomId) bubble.classList.add("room-left");
-    const bubbleClass = getBubbleLengthClass(bubbleText);
-    if (bubbleClass) bubble.classList.add(bubbleClass);
-    bubble.textContent = bubbleText;
-    node.appendChild(bubble);
+    if (!bubbleEl) {
+      bubbleEl = document.createElement("div");
+      bubbleEl.className = "speech-bubble";
+      node.insertBefore(bubbleEl, node.firstChild);
+    }
+    let bubbleClass = "speech-bubble";
+    if (roomId) bubbleClass += " room-left";
+    const lenClass = getBubbleLengthClass(bubbleText);
+    if (lenClass) bubbleClass += ` ${lenClass}`;
+    if (bubbleEl.className !== bubbleClass) bubbleEl.className = bubbleClass;
+    if (bubbleEl.textContent !== bubbleText) bubbleEl.textContent = bubbleText;
+  } else if (bubbleEl) {
+    bubbleEl.remove();
   }
+
+  const nameBtn = node.querySelector(".world-name-tag");
+  if (nameBtn && nameBtn.textContent !== agent.name) nameBtn.textContent = agent.name;
+
+  const img = node.querySelector(".world-avatar-img");
+  if (img && img.src !== agent.avatar) img.src = agent.avatar;
+}
+
+function createWorldAgentNodeCached(agent) {
+  const node = document.createElement("article");
+  node.style.position = "absolute";
+  node.style.left = "0";
+  node.style.top = "0";
+  node.style.willChange = "transform";
 
   const image = document.createElement("img");
   image.className = "avatar-img world-avatar-img";
@@ -677,14 +689,36 @@ function createWorldAgentNode(agent) {
     rerender(cycleMyStatus);
   });
   node.appendChild(nameBtn);
+
+  updateWorldAgentNode(node, agent);
   return node;
 }
 
 function renderWorld() {
   if (!worldLayer) return;
-  worldLayer.textContent = "";
-  [PM_AGENT, ...appState.participants.slice().sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0))]
-    .forEach((agent) => worldLayer.appendChild(createWorldAgentNode(agent)));
+  const agents = [PM_AGENT, ...appState.participants.slice().sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0))];
+  const activeIds = new Set();
+
+  agents.forEach((agent) => {
+    const key = agent.clientId || agent.id;
+    activeIds.add(key);
+    let node = worldNodeCache.get(key);
+    if (!node) {
+      node = createWorldAgentNodeCached(agent);
+      worldNodeCache.set(key, node);
+      worldLayer.appendChild(node);
+    } else {
+      updateWorldAgentNode(node, agent);
+      if (!node.parentNode) worldLayer.appendChild(node);
+    }
+  });
+
+  worldNodeCache.forEach((node, key) => {
+    if (!activeIds.has(key)) {
+      node.remove();
+      worldNodeCache.delete(key);
+    }
+  });
 }
 
 function renderMeetingRooms() {
@@ -773,8 +807,13 @@ function createMessageItem(message) {
   return item;
 }
 
+let lastRenderedMessageCount = -1;
+
 function renderMessages() {
   if (!messageRecent || !messageHistory || !messageHistorySummary || !messageHistoryList) return;
+  if (appState.messages.length === lastRenderedMessageCount) return;
+  lastRenderedMessageCount = appState.messages.length;
+
   const recent = appState.messages.slice(-MAX_RECENT_MESSAGES);
   const older = appState.messages.slice(0, -MAX_RECENT_MESSAGES);
   messageRecent.textContent = "";
@@ -1036,6 +1075,7 @@ function tryJoinWithNickname(rawName) {
   updateMessageInputState();
   queuePresencePatch({}, true);
   startMoveLoop();
+  showJoystick();
   rerender(cycleMyStatus);
   return true;
 }
@@ -1068,6 +1108,13 @@ function getMoveIntent() {
     y += key.y;
     dir = key.dir;
   });
+  // Merge joystick input
+  const joy = getJoystickIntent();
+  if (joy.moving) {
+    x += joy.x;
+    y += joy.y;
+    dir = joy.dir;
+  }
   if (x === 0 && y === 0) return { moving: false, x: 0, y: 0, dir };
   const mag = Math.hypot(x, y) || 1;
   return { moving: true, x: x / mag, y: y / mag, dir };
@@ -1165,6 +1212,96 @@ function startMoveLoop() {
     appState.moveRaf = requestAnimationFrame(tick);
   };
   appState.moveRaf = requestAnimationFrame(tick);
+}
+
+// --- Touch Joystick ---
+const touchJoystick = document.querySelector("#touchJoystick");
+const joystickBase = document.querySelector("#joystickBase");
+const joystickKnob = document.querySelector("#joystickKnob");
+const joystickState = { active: false, dx: 0, dy: 0, touchId: null };
+
+function isTouchDevice() {
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
+}
+
+function showJoystick() {
+  if (touchJoystick && isTouchDevice()) touchJoystick.hidden = false;
+}
+
+function initJoystick() {
+  if (!joystickBase || !joystickKnob) return;
+  const BASE_RADIUS = 50;
+  const KNOB_RADIUS = 20;
+  const MAX_OFFSET = BASE_RADIUS - KNOB_RADIUS;
+
+  function updateKnob(clientX, clientY) {
+    const rect = joystickBase.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let dx = clientX - cx;
+    let dy = clientY - cy;
+    const dist = Math.hypot(dx, dy) || 1;
+    if (dist > MAX_OFFSET) {
+      dx = (dx / dist) * MAX_OFFSET;
+      dy = (dy / dist) * MAX_OFFSET;
+    }
+    joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+    const norm = Math.min(dist, MAX_OFFSET) / MAX_OFFSET;
+    joystickState.dx = (dx / dist) * norm;
+    joystickState.dy = (dy / dist) * norm;
+  }
+
+  joystickBase.addEventListener("touchstart", (e) => {
+    if (joystickState.active) return;
+    const t = e.changedTouches[0];
+    joystickState.active = true;
+    joystickState.touchId = t.identifier;
+    updateKnob(t.clientX, t.clientY);
+    e.preventDefault();
+  }, { passive: false });
+
+  window.addEventListener("touchmove", (e) => {
+    if (!joystickState.active) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === joystickState.touchId) {
+        updateKnob(t.clientX, t.clientY);
+        e.preventDefault();
+        return;
+      }
+    }
+  }, { passive: false });
+
+  function resetJoystick() {
+    joystickState.active = false;
+    joystickState.dx = 0;
+    joystickState.dy = 0;
+    joystickState.touchId = null;
+    joystickKnob.style.transform = "translate(0px, 0px)";
+  }
+
+  window.addEventListener("touchend", (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joystickState.touchId) {
+        resetJoystick();
+        return;
+      }
+    }
+  });
+  window.addEventListener("touchcancel", resetJoystick);
+}
+
+function getJoystickIntent() {
+  if (!joystickState.active) return { moving: false, x: 0, y: 0, dir: appState.lastDirection };
+  const DEADZONE = 0.15;
+  const dx = joystickState.dx;
+  const dy = joystickState.dy;
+  const mag = Math.hypot(dx, dy);
+  if (mag < DEADZONE) return { moving: false, x: 0, y: 0, dir: appState.lastDirection };
+  let dir;
+  if (Math.abs(dx) > Math.abs(dy)) dir = dx > 0 ? "right" : "left";
+  else dir = dy > 0 ? "down" : "up";
+  return { moving: true, x: dx, y: dy, dir };
 }
 
 function bindKeyboardMovement() {
@@ -1289,6 +1426,7 @@ function initSupabaseRealtime() {
 
   bindCommonActions();
   bindKeyboardMovement();
+  initJoystick();
   initNicknameFlow();
   updateMessageInputState();
 
