@@ -519,14 +519,17 @@ function moveLocalOutFromMeetingA() {
   if (meetingScene) meetingScene.hidden = true;
   recalculateGeometry();
   const target = getOfficeExitPointFromMeetingA();
-  me.x = target.x;
-  me.y = target.y;
-  me.updatedAt = Date.now();
-  me.role = getDisplayRole(me.x, me.y);
+  // Re-fetch local participant since recalculateGeometry creates new objects via .map()
+  const meNow = getLocalParticipant();
+  if (!meNow) return;
+  meNow.x = target.x;
+  meNow.y = target.y;
+  meNow.updatedAt = Date.now();
+  meNow.role = getDisplayRole(meNow.x, meNow.y);
   appState.meetingLocalPos = { x: 52, y: 86 };
   appState.pressedKeys.clear();
-  queuePresencePatch({ x: me.x, y: me.y, role: me.role }, true);
-  broadcastMove(me.x, me.y, me.dir || "down");
+  queuePresencePatch({ x: meNow.x, y: meNow.y, role: meNow.role }, true);
+  broadcastMove(meNow.x, meNow.y, meNow.dir || "down");
   rerender(cycleMyStatus);
 }
 
